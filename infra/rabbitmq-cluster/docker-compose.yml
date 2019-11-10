@@ -1,62 +1,77 @@
 version: '3'
 
 services:
-  stats:
+  rabbitmqstats:
     image: bitnami/rabbitmq
     environment:
       - RABBITMQ_USERNAME=foo
       - RABBITMQ_PASSWORD=bar
       - RABBITMQ_NODE_TYPE=stats
-      - RABBITMQ_NODE_NAME=rabbit@stats
+      - RABBITMQ_NODE_NAME=rabbit@rabbitmqstats
       - RABBITMQ_CLUSTER_PARTITION_HANDLING=pause_minority
       - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
       - RABBITMQ_DISK_FREE_LIMIT=1000000000
     ports:
-      - '15672:15672'
-      - '5672:5672'
+      - '15673:15672'
+    #  - '5672:5672'
     volumes:
       - 'rabbitmqstats_data:/bitnami'
     networks:
       rabbit_net:
         aliases:
-          - rabbit_stats
+          - rabbitmqstats
 
-  queue-disc1:
+  rabbitmq1:
     image: bitnami/rabbitmq
     environment:
       - RABBITMQ_NODE_TYPE=queue-disc
-      - RABBITMQ_NODE_NAME=rabbit@queue-disc1
-      - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
+      - RABBITMQ_NODE_NAME=rabbit@rabbitmq1
+      - RABBITMQ_CLUSTER_NODE_NAME=rabbit@rabbitmqstats
       - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
       - RABBITMQ_DISK_FREE_LIMIT=1000000000
     volumes:
-      - 'rabbitmqdisc1_data:/bitnami'
+      - 'rabbitmq1_data:/bitnami'
     networks:
       rabbit_net:
         aliases:
-          - rabbit_disc1
+          - rabbitmq1
 
-  queue-disc2:
+  rabbitmq2:
     image: bitnami/rabbitmq
     environment:
       - RABBITMQ_NODE_TYPE=queue-disc
-      - RABBITMQ_NODE_NAME=rabbit@queue-disc2
-      - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
+      - RABBITMQ_NODE_NAME=rabbit@rabbitmq2
+      - RABBITMQ_CLUSTER_NODE_NAME=rabbit@rabbitmqstats
       - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
       - RABBITMQ_DISK_FREE_LIMIT=1000000000
     volumes:
-      - 'rabbitmqdisc2_data:/bitnami'
+      - 'rabbitmq2_data:/bitnami'
     networks:
       rabbit_net:
         aliases:
-          - rabbit_disc2
+          - rabbitmq2
+
+  haproxy:
+    image: haproxy:1.7
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      - rabbit_net
+    depends_on:
+      - rabbitmqstats
+      - rabbitmq1
+      - rabbitmq2
+    ports:
+      - 15672:15672
+      - 5672:5672
+      - 1936:1936
 
 volumes:
   rabbitmqstats_data:
     driver: local
-  rabbitmqdisc1_data:
+  rabbitmq1_data:
     driver: local
-  rabbitmqdisc2_data:
+  rabbitmq2_data:
     driver: local
 
 networks:
