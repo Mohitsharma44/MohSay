@@ -1,0 +1,65 @@
+version: '3'
+
+services:
+  stats:
+    image: bitnami/rabbitmq
+    environment:
+      - RABBITMQ_USERNAME=foo
+      - RABBITMQ_PASSWORD=bar
+      - RABBITMQ_NODE_TYPE=stats
+      - RABBITMQ_NODE_NAME=rabbit@stats
+      - RABBITMQ_CLUSTER_PARTITION_HANDLING=pause_minority
+      - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
+      - RABBITMQ_DISK_FREE_LIMIT=1000000000
+    ports:
+      - '15672:15672'
+      - '5672:5672'
+    volumes:
+      - 'rabbitmqstats_data:/bitnami'
+    networks:
+      rabbit_net:
+        aliases:
+          - rabbit_stats
+
+  queue-disc1:
+    image: bitnami/rabbitmq
+    environment:
+      - RABBITMQ_NODE_TYPE=queue-disc
+      - RABBITMQ_NODE_NAME=rabbit@queue-disc1
+      - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
+      - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
+      - RABBITMQ_DISK_FREE_LIMIT=1000000000
+    volumes:
+      - 'rabbitmqdisc1_data:/bitnami'
+    networks:
+      rabbit_net:
+        aliases:
+          - rabbit_disc1
+
+  queue-disc2:
+    image: bitnami/rabbitmq
+    environment:
+      - RABBITMQ_NODE_TYPE=queue-disc
+      - RABBITMQ_NODE_NAME=rabbit@queue-disc2
+      - RABBITMQ_CLUSTER_NODE_NAME=rabbit@stats
+      - RABBITMQ_ERL_COOKIE=s3cr3tc00ki3
+      - RABBITMQ_DISK_FREE_LIMIT=1000000000
+    volumes:
+      - 'rabbitmqdisc2_data:/bitnami'
+    networks:
+      rabbit_net:
+        aliases:
+          - rabbit_disc2
+
+volumes:
+  rabbitmqstats_data:
+    driver: local
+  rabbitmqdisc1_data:
+    driver: local
+  rabbitmqdisc2_data:
+    driver: local
+
+networks:
+  rabbit_net:
+    external:
+      name: rabbit_net
