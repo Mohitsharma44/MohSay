@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  communicator:
+    image: mohitsharma44/communicator
+    build:
+      context: '.'
+    env_file:
+      - rabbit_vars.env
+      - communication_vars.env
+    networks:
+      rabbit_net:
+        aliases:
+          - communicator
+
+networks:
+  rabbit_net:
+    external:
+      name: rabbit_net
