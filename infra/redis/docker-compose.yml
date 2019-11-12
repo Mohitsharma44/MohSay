@@ -1,0 +1,89 @@
+version: '3.4'
+
+services:
+  redis-master:
+    image: 'mohitsharma44/redis:5.0.6-debian-9'
+    secrets:
+      - redis-master-password
+    environment:
+      - DISABLE_COMMANDS=FLUSHDB,FLUSHALL,CONFIG
+      - ALLOW_EMPTY_PASSWORD=no
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-master-password
+      - REDIS_REPLICATION_MODE=master
+    volumes:
+      - redis-master_data:/bitnami
+    networks:
+      db_swarm_net:
+        aliases:
+          - redis-master
+    command: ["/run.sh",
+    "--hz 50",
+    "--timeout 120",
+    "--appendonly yes",
+    "--maxmemory 500mb",
+    "--maxmemory-policy allkeys-lru",
+    "--appendonly yes"]
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+    #restart: always
+
+  redis-replica:
+    image: 'mohitsharma44/redis:5.0.6-debian-9'
+    secrets:
+      - redis-master-password
+      - redis-replica-password
+    environment:
+      - ALLOW_EMPTY_PASSWORD=no
+      - REDIS_PASSWORD_FILE=/run/secrets/redis-replica-password
+      - REDIS_MASTER_PASSWORD_FILE=/run/secrets/redis-master-password
+      - REDIS_REPLICATION_MODE=slave
+      - REDIS_MASTER_HOST=tasks.redis-master
+      - REDIS_MASTER_PORT_NUMBER=6379
+    networks:
+      - db_swarm_net
+    command: ["/run.sh",
+    "--timeout 120",
+    "--replica-serve-stale-data yes",
+    ]
+    #restart: always
+    deploy:
+      mode: replicated
+      replicas: 3
+      placement:
+        constraints: [node.labels.arch != arm]
+
+  redis-sentinel:
+    image: 'bitnami/redis-sentinel:latest'
+    secrets:
+      - redis-master-password
+    environment:
+      - ALLOW_EMPTY_PASSWORD=no
+      - REDIS_MASTER_PASSWORD_FILE=/run/secrets/redis-master-password
+      - REDIS_MASTER_HOST=tasks.redis-master
+    ports:
+      - '26379:26379'
+    networks:
+      - db_swarm_net
+    deploy:
+      mode: replicated
+      replicas: 4
+      placement:
+        constraints: [node.labels.arch != arm]
+
+
+volumes:
+  redis-master_data:
+
+secrets:
+  redis-master-password:
+    external: true
+  redis-replica-password:
+    external: true
+
+networks:
+  db_swarm_net:
+    driver: overlay
+    attachable: true
