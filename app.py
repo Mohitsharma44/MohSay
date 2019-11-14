@@ -27,22 +27,26 @@ def get_from_redis(rsvp):
     """
     # We want to connect to a different replica everytime
     # we need to run a query
-    try:
-        sentinel = Sentinel([('redis-sentinel', 16379)],
-                            socket_timeout=0.1,
-                            password=redis_master_password)
-        replica = sentinel.slave_for('master-node')
-        response = replica.hgetall(rsvp)
-    except Exception as ex:
-        print("Error fetching response for rsvp code: {}\n {}".format(rsvp, ex))
-        response = False
-    finally:
-        return response
+    # try:
+    #     sentinel = Sentinel([('redis-sentinel', 16379)],
+    #                         socket_timeout=0.1,
+    #                         password=redis_master_password)
+    #     replica = sentinel.slave_for('master-node')
+    #     response = replica.hgetall(rsvp)
+    # except Exception as ex:
+    #     print("Error fetching response for rsvp code: {}\n {}".format(rsvp, ex))
+    #     response = False
+    # finally:
+    #     return response
+    user_data = {'Name': 'Foo Bar', 'Cat': 1, 'Photo': 0,
+                 'RSVP': 1, 'Contact No': '1234567890'}
+    return user_data
 
 class BaseHandler(tornado.web.RequestHandler):
 
     def get_current_user(self):
-        return self.get_secure_cookie("username")
+        return (self.get_secure_cookie("rsvp_code"),
+                self.get_secure_cookie("username"))
 
 class LoginHandler(BaseHandler):
 
@@ -58,7 +62,7 @@ class LoginHandler(BaseHandler):
         #user_data = get_from_redis(self.get_argument("rsvp-code"))
         user_data = {'Name': 'Foo Bar', 'Cat': 1, 'Photo': 0,
                      'RSVP': 1, 'Contact No': '1234567890'}
-        self.set_secure_cookie("rsvp", self.get_argument("rsvp_code"))
+        self.set_secure_cookie("rsvp_code", self.get_argument("rsvp_code"))
         self.set_secure_cookie('username', user_data['Name'])
         print("Stored username: {} and rsvp: {}".format(user_data['Name'],
                                                         self.get_argument("rsvp_code")))
@@ -66,7 +70,7 @@ class LoginHandler(BaseHandler):
         # self.set_secure_cookie('photo', user_data['Photo'])
         # self.set_secure_cookie('rsvp', user_data['RSVP'])
         # self.set_secure_cookie('contact_no', user_data['Contact No'])
-        self.redirect("/invitation/")
+        self.redirect("/dashboard/")
 
 class DashHandler(BaseHandler):
 
@@ -94,12 +98,15 @@ class InvitationHandler(BaseHandler):
     @tornado.gen.coroutine
     def get(self):
         log.info("got request for InvitationHandler from {}".format(self.get_current_user()))
+        # Lets obtain user information
+        user_data = get_from_redis(self.get_current_user()[0])
         self.render('invitation.html',
-                    guest_name='foo Bar baz and family what else', category_name='cat1',
+                    guest_name= user_data["Name"],
+                    invitation_link=os.path.join('/', invitations_dir, "cat{}.pdf".format(user_data["Cat"])),
                     image_links=[
                         os.path.join('/', invitations_dir, 'first.png'),
                         os.path.join('/', invitations_dir, 'second.png'),
-                        os.path.join('/', invitations_dir, 'cat1.png')
+                        os.path.join('/', invitations_dir, "cat{}.png".format(user_data["Cat"]))
                         ])
 
     @tornado.gen.coroutine
